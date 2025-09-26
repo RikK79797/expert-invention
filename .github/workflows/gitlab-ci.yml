@@ -1,53 +1,13 @@
-# .gitlab-ci.yml
-# Пайплайн для запуска bash-скрипта из репозитория
-
-stages:
-  - prepare
-  - execute
-
-variables:
-  SCRIPT_PATH: "script.sh"  # Укажите путь к вашему .sh-файлу
-  SCRIPT_BRANCH: "main"             # Ветка, из которой клонируем
-
-before_script:
-  - echo "🌍 Запуск CI/CD пайплайна..."
-  - apt-get update -qq
-  - apt-get install -y -qq git curl sudo > /dev/null 2>&1 || true
-  - echo "✅ Подготовка окружения завершена"
-
-# Этап: Клонирование репозитория (если скрипт не в текущем)
-clone_repository:
-  stage: prepare
-  image: alpine/git
-  script:
-    - echo "🔁 Клонируем репозиторий: $CI_PROJECT_URL"
-    - git clone --branch "$SCRIPT_BRANCH" "$CI_REPOSITORY_URL" ./repo
-    - cd repo
-    - if [ -f "$SCRIPT_PATH" ]; then
-        echo "🟢 Скрипт найден: $SCRIPT_PATH";
-      else
-        echo "❌ Ошибка: Скрипт $SCRIPT_PATH не найден!";
-        exit 1;
-      fi
-    - chmod +x "$SCRIPT_PATH"
-    - cp "$SCRIPT_PATH" /script.sh
-  artifacts:
-    paths:
-      - script.sh
-    expire_in: 1 hour
-
-# Этап: Запуск вашего .sh-скрипта
-run_script:
-  stage: execute
-  image: ubuntu:22.04
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq bash > /dev/null 2>&1
-  script:
-    - echo "▶️ Запускаем ваш скрипт..."
-    - chmod +x script.sh
-    - ./script.sh
-  needs:
-    - job: clone_repository
-      artifacts: true
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"  # Запускать только из main
+name: Run My Shell Script
+on:
+  push:
+    branches: [ main ]  # Triggers on push to the main branch
+jobs:
+  run_script:
+    runs-on: ubuntu-latest  # Uses a Linux environment (compatible with .sh scripts)
+    steps:
+      - uses: actions/checkout@v3  # Step 1: Clones your repo to the runner
+      - name: Make script executable
+        run: chmod +x ./script.sh  # Step 2: Grants execute permission to your script
+      - name: Run the script
+        run: ./script.sh "https://github.com/prometheus/prometheus.git"  # Step 3: Executes your shell script
