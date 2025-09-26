@@ -6,7 +6,6 @@ set -euo pipefail
 LANG=""
 REPO=""
 BRANCH="main"
-PORT=3000
 OUTPUT="pipeline.yaml"
 TEMP_DIR=".tmp_repo"
 
@@ -21,7 +20,6 @@ usage() {
   echo "  --lang LANG        Язык: python, node, java, go (необязательно — автоопределение)"
   echo "  --repo URL         URL репозитория (HTTPS)"
   echo "  --branch NAME      Ветка (по умолчанию: main)"
-  echo "  --port N           Базовый порт (по умолчанию: 3000). Если занят — будет найден свободный."
   echo "  --output FILE      Имя выходного .yaml файла (по умолчанию: pipeline.yaml)"
   exit 1
 }
@@ -32,7 +30,6 @@ while [[ "$#" -gt 0 ]]; do
     --lang) LANG="$2"; shift ;;
     --repo) REPO="$2"; shift ;;
     --branch) BRANCH="$2"; shift ;;
-    --port) PORT="$2"; shift ;;
     --output) OUTPUT="$2"; shift ;;
     *) echo "Неизвестный параметр: $1"; usage ;;
   esac
@@ -43,49 +40,6 @@ done
 if [[ -z "$REPO" ]]; then
   echo "Ошибка: --repo обязателен."
   usage
-fi
-
-# === Проверка корректности номера порта ===
-if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
-  echo "Ошибка: Порт должен быть числом от 1 до 65535. Получено: $PORT"
-  exit 1
-fi
-
-# === Функция поиска свободного порта ===
-find_free_port() {
-  local start_port=${1}
-  local port=$start_port
-  local max_port=$((start_port + 100))
-
-  local check_cmd="ss -tuln"
-  if ! command -v ss &> /dev/null; then
-    check_cmd="netstat -tuln"
-    if ! command -v netstat &> /dev/null; then
-      echo "❌ Не найдены ни 'ss', ни 'netstat'. Установите iproute2 или net-tools."
-      exit 1
-    fi
-  fi
-
-  while [ $port -le $max_port ]; do
-    if ! eval "$check_cmd" | grep -q ":$port "; then
-      echo "$port"
-      return 0
-    fi
-    ((port++))
-  done
-
-  echo "❌ Не найдено свободных портов в диапазоне $start_port-$max_port." >&2
-  exit 1
-}
-
-# === Поиск свободного порта ===
-echo "🔍 Проверка порта $PORT..."
-FREE_PORT=$(find_free_port "$PORT")
-
-if [ "$FREE_PORT" -eq "$PORT" ]; then
-  echo "✅ Порт $PORT свободен. Используем его."
-else
-  echo "⚠️  Порт $PORT занят. Используем свободный порт: $FREE_PORT."
 fi
 
 # === Клонирование репозитория ===
@@ -257,7 +211,6 @@ cat > "$OUTPUT" << EOF
 # Язык: $LANG
 # Репозиторий: $REPO
 # Ветка: $BRANCH
-# Используемый порт: $FREE_PORT (исходный запрос: $PORT)
 # Оценка требуемого дискового пространства: ${DISK_REQUIRED} MB
 
 stages:
@@ -265,7 +218,6 @@ stages:
 
 variables:
   APP_LANG: "$LANG"
-  EXPOSED_PORT: "$FREE_PORT"
   REQUIRED_DISK_MB: "$DISK_REQUIRED"
   REPO_URL: "$REPO"
   TARGET_BRANCH: "$BRANCH"
@@ -292,7 +244,6 @@ echo "🗑️  Временная директория удалена."
 echo ""
 echo "✅ Анализ завершён!"
 echo "🚀 Пайплайн сгенерирован: $OUTPUT"
-echo "🔌 Используемый порт: $FREE_PORT"
 echo ""
 echo "💡 Теперь вы можете использовать $OUTPUT в GitLab CI, GitHub Actions и других системах."
 echo ""
