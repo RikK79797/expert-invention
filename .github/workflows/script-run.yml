@@ -10,4 +10,4 @@ jobs:
       - name: Make script executable
         run: chmod +x ./script.sh  # Step 2: Grants execute permission to your script
       - name: Run the script
-        run: ./script.sh "https://github.com/prometheus/prometheus.git"  # Step 3: Executes your shell script
+        run: ./script.sh --repo "https://github.com/prometheus/prometheus.git"  # Step 3: Executes your shell script
