@@ -148,15 +148,12 @@ cat > "$OUTPUT" << EOF
 # Репозиторий: $REPO
 # Ветка: $BRANCH
 # Порт: $PORT
-# Требования: RAM >= {MEMORY}MB, Disk >= {DISK}MB
 
 stages:
   - build
 
 variables:
   APP_LANG: "$LANG"
-  # REQUIRED_MEMORY_MB: "$MEMORY"
-  # REQUIRED_DISK_MB: "$DISK"
   EXPOSED_PORT: "$PORT"
   REPO_URL: "$REPO"
   TARGET_BRANCH: "$BRANCH"
@@ -173,31 +170,6 @@ $(get_build_steps)
   script:
     - echo "Сборка завершена успешно."
 
-  tags:
-    - high-mem-${MEMORY}mb
-    - disk-${DISK}mb
-
-test_application:
-  stage: test
-  image: ubuntu:22.04
-  script:
-    - echo "Запуск тестов..."
-    - exit 0
-  needs: ["build_application"]
-  rules:
-    - if: \$CI_COMMIT_BRANCH == \$TARGET_BRANCH
-
-deploy_staging:
-  stage: deploy
-  image: alpine:latest
-  script:
-    - echo "Доставка приложения в staging..."
-    - echo "Используется порт: \${EXPOSED_PORT}"
-  environment: staging
-  needs: ["test_application"]
-  when: manual
-  rules:
-    - if: \$CI_COMMIT_BRANCH == \$TARGET_BRANCH
 EOF
 
 # === Удаление временной директории ===
