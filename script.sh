@@ -148,7 +148,7 @@ cat > "$OUTPUT" << EOF
 # Репозиторий: $REPO
 # Ветка: $BRANCH
 # Порт: $PORT
-# Требования: RAM >= ${MEMORY}MB, Disk >= ${DISK}MB
+# Требования: RAM >= {MEMORY}MB, Disk >= {DISK}MB
 
 stages:
   - build
