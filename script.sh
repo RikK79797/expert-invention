@@ -55,9 +55,8 @@ fi
 find_free_port() {
   local start_port=${1}
   local port=$start_port
-  local max_port=$((start_port + 100))  # ищем в пределах 100 портов
+  local max_port=$((start_port + 100))
 
-  # Определяем, какую команду использовать
   local check_cmd="ss -tuln"
   if ! command -v ss &> /dev/null; then
     check_cmd="netstat -tuln"
@@ -120,7 +119,6 @@ detect_language() {
     exit 1
   fi
 
-  # Если язык задан, проверим совпадение
   if [[ -n "$LANG" ]]; then
     if [[ "$LANG" != "$detected" ]]; then
       echo "⚠️  Предупреждение: Указан язык '$LANG', но обнаружен '$detected' по файлам проекта."
@@ -137,6 +135,79 @@ detect_language() {
 
 LANG=$(detect_language "$TEMP_DIR")
 echo "✅ Определён язык: $LANG"
+
+# === Оценка требуемого дискового пространства ===
+estimate_disk_requirement() {
+  local repo_dir="$1"
+  local lang="$2"
+
+  # Размер репозитория в МБ
+  local repo_size_kb
+  repo_size_kb=$(du -s "$repo_dir" | awk '{print $1}')
+  local repo_size_mb=$(( (repo_size_kb + 1023) / 1024 ))
+
+  local multiplier=3
+  local estimated_mb
+
+  case "$lang" in
+    node)
+      local deps_count=0
+      if [[ -f "$repo_dir/package.json" ]]; then
+        if command -v jq &> /dev/null; then
+          deps_count=$(jq '.dependencies // {} | length' "$repo_dir/package.json")
+          deps_count=$((deps_count + $(jq '.devDependencies // {} | length' "$repo_dir/package.json")))
+        else
+          deps_count=20  # fallback
+        fi
+      fi
+      multiplier=$(( 10 + deps_count / 3 ))
+      multiplier=$(( multiplier > 100 ? 100 : multiplier ))
+      ;;
+
+    python)
+      local req_lines=0
+      if [[ -f "$repo_dir/requirements.txt" ]]; then
+        req_lines=$(wc -l < "$repo_dir/requirements.txt" | tr -d ' ')
+      fi
+      multiplier=$(( 5 + req_lines * 2 ))
+      multiplier=$(( multiplier > 50 ? 50 : multiplier ))
+      ;;
+
+    java)
+      multiplier=30
+      ;;
+
+    go)
+      multiplier=4
+      ;;
+
+    *)
+      multiplier=5
+      ;;
+  esac
+
+  estimated_mb=$(( repo_size_mb * multiplier ))
+  estimated_mb=$(( estimated_mb < 500 ? 500 : estimated_mb ))  # минимум 500 МБ
+  echo "$estimated_mb"
+}
+
+# Оценка объёма
+DISK_REQUIRED=$(estimate_disk_requirement "$TEMP_DIR" "$LANG")
+echo "📊 Оценка требуемого места: ${DISK_REQUIRED} MB"
+
+# Проверка доступного места
+avail_mb=$(df / --output=avail -B M | tail -n1 | awk '{print $1}' | tr -d 'M')
+
+if [[ -z "$avail_mb" ]] || ! [[ "$avail_mb" =~ ^[0-9]+$ ]]; then
+  echo "⚠️  Не удалось определить свободное место на диске."
+else
+  echo "💾 Свободно на диске: ${avail_mb} MB"
+  if [ "$avail_mb" -lt "$DISK_REQUIRED" ]; then
+    echo "⚠️  Недостаточно места для запуска пайплайна, необходимо ${DISK_REQUIRED} МБ"
+  else
+    echo "✅ Достаточно места для сборки и запуска."
+  fi
+fi
 
 # === Шаги сборки в зависимости от языка ===
 get_build_steps() {
@@ -187,6 +258,7 @@ cat > "$OUTPUT" << EOF
 # Репозиторий: $REPO
 # Ветка: $BRANCH
 # Используемый порт: $FREE_PORT (исходный запрос: $PORT)
+# Оценка требуемого дискового пространства: ${DISK_REQUIRED} MB
 
 stages:
   - build
@@ -194,6 +266,7 @@ stages:
 variables:
   APP_LANG: "$LANG"
   EXPOSED_PORT: "$FREE_PORT"
+  REQUIRED_DISK_MB: "$DISK_REQUIRED"
   REPO_URL: "$REPO"
   TARGET_BRANCH: "$BRANCH"
   PROJECT_ROOT: "/app"
@@ -220,7 +293,6 @@ echo ""
 echo "✅ Анализ завершён!"
 echo "🚀 Пайплайн сгенерирован: $OUTPUT"
 echo "🔌 Используемый порт: $FREE_PORT"
-# echo "📄 Список зависимостей: $DEPS_FILE"
 echo ""
 echo "💡 Теперь вы можете использовать $OUTPUT в GitLab CI, GitHub Actions и других системах."
 echo ""
