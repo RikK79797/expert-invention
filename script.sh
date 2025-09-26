@@ -7,14 +7,10 @@ LANG=""
 REPO=""
 BRANCH="main"
 PORT=3000
-MEMORY=256
-DISK=1000
+# MEMORY=256
+# DISK=1000
 OUTPUT="pipeline.yaml"
 TEMP_DIR=".tmp_repo"
-
-# === Список зависимостей (будет записан в dependencies.txt) ===
-DEPS_FILE="dependencies.txt"
-echo "Анализ зависимостей:" > "$DEPS_FILE"
 
 # === Функция помощи ===
 usage() {
@@ -24,8 +20,8 @@ usage() {
   echo "  --repo URL         URL репозитория (HTTPS)"
   echo "  --branch NAME      Ветка (по умолчанию: main)"
   echo "  --port N           Требуемый порт (по умолчанию: 3000)"
-  echo "  --memory N         Минимальная память в MB (по умолчанию: 256)"
-  echo "  --disk N           Минимальное дисковое пространство в MB (по умолчанию: 1000)"
+  # echo "  --memory N         Минимальная память в MB (по умолчанию: 256)"
+  # echo "  --disk N           Минимальное дисковое пространство в MB (по умолчанию: 1000)"
   echo "  --output FILE      Имя выходного .yaml файла (по умолчанию: pipeline.yaml)"
   exit 1
 }
@@ -37,8 +33,8 @@ while [[ "$#" -gt 0 ]]; do
     --repo) REPO="$2"; shift ;;
     --branch) BRANCH="$2"; shift ;;
     --port) PORT="$2"; shift ;;
-    --memory) MEMORY="$2"; shift ;;
-    --disk) DISK="$2"; shift ;;
+    # --memory) MEMORY="$2"; shift ;;
+    # --disk) DISK="$2"; shift ;;
     --output) OUTPUT="$2"; shift ;;
     *) echo "Неизвестный параметр: $1"; usage ;;
   esac
@@ -152,13 +148,11 @@ cat > "$OUTPUT" << EOF
 
 stages:
   - build
-  - test
-  - deploy
 
 variables:
   APP_LANG: "$LANG"
-  REQUIRED_MEMORY_MB: "$MEMORY"
-  REQUIRED_DISK_MB: "$DISK"
+  # REQUIRED_MEMORY_MB: "$MEMORY"
+  # REQUIRED_DISK_MB: "$DISK"
   EXPOSED_PORT: "$PORT"
   REPO_URL: "$REPO"
   TARGET_BRANCH: "$BRANCH"
@@ -214,7 +208,5 @@ echo "🚀 Пайплайн сгенерирован: $OUTPUT"
 echo ""
 echo "💡 Теперь вы можете использовать $OUTPUT в GitLab CI, Jenkins, GitHub Actions и т.д."
 echo ""
-echo "Содержимое файла зависемостей"
-cat "$DEPS_FILE"
 echo "Содержимое пайплайна"
 cat "$OUTPUT"
