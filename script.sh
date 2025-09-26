@@ -95,7 +95,6 @@ estimate_disk_requirement() {
   local repo_dir="$1"
   local lang="$2"
 
-  # Размер репозитория в МБ
   local repo_size_kb
   repo_size_kb=$(du -s "$repo_dir" | awk '{print $1}')
   local repo_size_mb=$(( (repo_size_kb + 1023) / 1024 ))
@@ -111,7 +110,7 @@ estimate_disk_requirement() {
           deps_count=$(jq '.dependencies // {} | length' "$repo_dir/package.json")
           deps_count=$((deps_count + $(jq '.devDependencies // {} | length' "$repo_dir/package.json")))
         else
-          deps_count=20  # fallback
+          deps_count=20
         fi
       fi
       multiplier=$(( 10 + deps_count / 3 ))
@@ -141,13 +140,73 @@ estimate_disk_requirement() {
   esac
 
   estimated_mb=$(( repo_size_mb * multiplier ))
-  estimated_mb=$(( estimated_mb < 500 ? 500 : estimated_mb ))  # минимум 500 МБ
+  estimated_mb=$(( estimated_mb < 500 ? 500 : estimated_mb ))
   echo "$estimated_mb"
 }
 
-# Оценка объёма
+# === Анализ потребления диска приложением ===
+analyze_disk_usage() {
+  local repo_dir="$1"
+  local lang="$2"
+  local level="low"
+  local reason="Нет явной записи на диск."
+
+  # Шаблоны, указывающие на использование диска
+  local patterns=(
+    '\.(write|save|dump|to_csv|to_json|writeFile)'  # JS/Python запись
+    'open.*[wa+]'                                    # Python открытие на запись
+    '> .*'
+    '>> .*'
+    'fwrite\|file_put_contents'                     # PHP/C
+    'sqlite\|\.db\|\.sqlite'                         # Базы данных
+    'logs?/'                                         # Логи
+    'upload\|storage\|cache\|tmp\|temp'             # Кэш, временные файлы
+    'Dockerfile.*VOLUME'
+    'docker-compose.*volumes'
+    '\.pkl$'
+    '\.log$'
+    'logging.FileHandler'                            # Python логгирование в файл
+    'os\.makedirs.*log'                              # Создание папок для логов
+  )
+
+  local found=0
+  for pattern in "${patterns[@]}"; do
+    if grep -r -s -q -E "$pattern" "$repo_dir" 2>/dev/null; then
+      ((found++))
+    fi
+  done
+
+  if [ $found -eq 0 ]; then
+    level="low"
+    reason="Не найдено операций записи на диск."
+  elif [ $found -le 3 ]; then
+    level="medium"
+    reason="Обнаружены единичные операции записи (логи, кэш)."
+  else
+    level="high"
+    reason="Много операций записи: БД, логи, сохранение данных."
+  fi
+
+  # Особые случаи
+  if [[ "$lang" == "python" ]]; then
+    if grep -r -s -q -E 'pandas\.read_(csv|json)|pickle\.load' "$repo_dir" 2>/dev/null; then
+      if [[ "$level" == "low" ]]; then
+        level="medium"
+        reason="Чтение данных из файлов — возможна последующая запись."
+      fi
+    fi
+  fi
+
+  echo "$level|$reason"
+}
+
+# === Оценка объёма и анализ диска ===
 DISK_REQUIRED=$(estimate_disk_requirement "$TEMP_DIR" "$LANG")
 echo "📊 Оценка требуемого места: ${DISK_REQUIRED} MB"
+
+# Анализ потребления диска
+IFS='|' read -r disk_level disk_reason <<< "$(analyze_disk_usage "$TEMP_DIR" "$LANG")"
+echo "🧠 Анализ использования диска: $disk_level — $disk_reason"
 
 # Проверка доступного места
 avail_mb=$(df / --output=avail -B M | tail -n1 | awk '{print $1}' | tr -d 'M')
@@ -205,13 +264,14 @@ EOF
   esac
 }
 
-# === Генерация pipeline.yaml с выбранным свободным портом ===
+# === Генерация pipeline.yaml ===
 cat > "$OUTPUT" << EOF
 # Автоматически сгенерированный CI/CD пайплайн
 # Язык: $LANG
 # Репозиторий: $REPO
 # Ветка: $BRANCH
 # Оценка требуемого дискового пространства: ${DISK_REQUIRED} MB
+# Потребление диска: $disk_level ($disk_reason)
 
 stages:
   - build
@@ -219,6 +279,7 @@ stages:
 variables:
   APP_LANG: "$LANG"
   REQUIRED_DISK_MB: "$DISK_REQUIRED"
+  DISK_USAGE_LEVEL: "$disk_level"   # low | medium | high
   REPO_URL: "$REPO"
   TARGET_BRANCH: "$BRANCH"
   PROJECT_ROOT: "/app"
