@@ -9,6 +9,8 @@ jobs:
         with:
           repository: lm-sys/FastChat.git
           ref: main
+      - name: install poetry
+        run: curl -sSL https://install.python-poetry.org | python3 -
       - name: install-dependencies
         run: poetry install
       - name: run-application
