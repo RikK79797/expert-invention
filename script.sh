@@ -1,452 +1,302 @@
 #!/bin/bash
 
-error_exit() {
-    echo -e "${RED}Ошибка: $1${NC}" >&2
+set -euo pipefail
+
+# Значения по умолчанию
+LANG=""
+REPO=""
+BRANCH="main"
+OUTPUT="pipeline.yaml"
+TEMP_DIR=".tmp_repo"
+
+# Список зависимостей
+DEPS_FILE="dependencies.txt"
+echo "Анализ зависимостей:" > "$DEPS_FILE"
+
+# Функция помощи
+usage() {
+  echo "Использование: $0 [опции]"
+  echo "Опции:"
+  echo "  --lang LANG        Язык: python, node, java (необязательно — автоопределение)"
+  echo "  --repo URL         URL репозитория (HTTPS)"
+  echo "  --branch NAME      Ветка (по умолчанию: main)"
+  echo "  --output FILE      Имя выходного .yaml файла (по умолчанию: pipeline.yaml)"
+  exit 1
+}
+
+# Парсинг аргументов
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    --lang) LANG="$2"; shift ;;
+    --repo) REPO="$2"; shift ;;
+    --branch) BRANCH="$2"; shift ;;
+    --output) OUTPUT="$2"; shift ;;
+    *) echo "Неизвестный параметр: $1"; usage ;;
+  esac
+  shift
+done
+
+# === Валидация обязательных полей ===
+if [[ -z "$REPO" ]]; then
+  echo "Ошибка: --repo обязателен."
+  usage
+fi
+
+#  Клонирование репозитория 
+echo "📥 Клонирую репозиторий: $REPO (ветка: $BRANCH)..."
+git clone --depth 1 --branch "$BRANCH" "$REPO" "$TEMP_DIR" || {
+  echo "❌ Не удалось клонировать репозиторий. Проверьте URL и ветку."
+  exit 1
+}
+
+#  Автоопределение языка программирования 
+detect_language() {
+  local dir="$1"
+  local detected=""
+
+  if [[ -f "$dir/requirements.txt" ]]; then
+    echo "requirements.txt" >> "$DEPS_FILE"
+    detected="python"
+  elif [[ -f "$dir/package.json" ]]; then
+    echo "package.json" >> "$DEPS_FILE"
+    detected="node"
+  elif [[ -f "$dir/pom.xml" ]] || [[ -f "$dir/build.gradle" ]]; then
+    [[ -f "$dir/pom.xml" ]] && echo "pom.xml" >> "$DEPS_FILE"
+    [[ -f "$dir/build.gradle" ]] && echo "build.gradle" >> "$DEPS_FILE"
+    detected="java"
+  elif [[ -f "$dir/go.mod" ]]; then
+    echo "go.mod" >> "$DEPS_FILE"
+    detected="go"
+  else
+    echo "❌ Не удалось определить язык: не найдены файлы зависимостей."
+    rm -rf "$TEMP_DIR"
     exit 1
-}
+  fi
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-repo_url=""
-project_dir=""
-branch_name="main"
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --repo)
-            repo_url="$2"
-            shift 2
-            ;;
-        --dir)
-            project_dir="$2"
-            shift 2
-            ;;
-        --branch)
-            if [ -n "$2" ]; then
-                branch_name="$2"
-            fi
-            shift 2
-            ;;
-        *)
-            error_exit "Неизвестный аргумент: $1. Используйте --repo или --dir"
-            ;;
-    esac
-done
-
-if [ -z "$repo_url" ] && [ -z "$project_dir" ]; then
-    error_exit "Не указан ни репозиторий (--repo), ни папка (--dir)"
-fi
-
-repo_path=""
-if [[ "$repo_url" =~ ^https?:// ]]; then
-    project_dir=$(basename "$repo_url" .git)
-    rm -rf "$project_dir" 
-    git clone --branch "$branch_name" "$repo_url" "$project_dir" || error_exit "Не удалось клонировать репозиторий"
-    repo_path=$(echo "$repo_url" | sed -E 's|https?://github.com/||; s|\\.git$||')
-elif [ -n "$project_dir" ]; then
-    [ -d "$project_dir" ] || error_exit "Папка $project_dir не существует"
-fi
-
-project_dir="$(cd "$project_dir" && pwd)"
-
-pipeline_file="pipeline.yaml"
-detected=false
-project_type="unknown"
-
-create_base_pipeline() {
-    cat > "$pipeline_file" << EOF
-name: CI Pipeline
-on:
-  push:
-    branches: [ "$branch_name" ]
-  pull_request:
-    branches: [ "$branch_name" ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-EOF
-
-    if [ -n "$repo_path" ]; then
-        cat >> "$pipeline_file" << EOF
-        with:
-          repository: $repo_path
-          ref: $branch_name
-EOF
+  if [[ -n "$LANG" ]]; then
+    if [[ "$LANG" != "$detected" ]]; then
+      echo "⚠️  Предупреждение: Указан язык '$LANG', но обнаружен '$detected' по файлам проекта."
+      read -p "Использовать указанный язык? (y/N): " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        detected="$LANG"
+      fi
     fi
+  fi
 
-    cat >> "$pipeline_file" << EOF
-      - name: Detect project type and list files
-        run: |
-          echo "Project directory: \$(pwd)"
-          echo "Detected files:"
-          find . -type f -name "*.json" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" | head -20
-          echo "Root directory contents:"
-          ls -la
-EOF
+  echo "$detected"
 }
 
-create_base_pipeline
+LANG=$(detect_language "$TEMP_DIR")
+echo "✅ Определён язык: $LANG"
 
-# === Python ===
-check_python_project() {
-    local req_file=$(find "$project_dir" -maxdepth 2 -type f -name "requirements.txt" -print -quit)
-    local poetry_file=$(find "$project_dir" -maxdepth 2 -type f -name "pyproject.toml" -print -quit)
-    local setup_file=$(find "$project_dir" -maxdepth 2 -type f -name "setup.py" -print -quit)
+# === Оценка требуемого дискового пространства ===
+estimate_disk_requirement() {
+  local repo_dir="$1"
+  local lang="$2"
 
-    if [ -n "$poetry_file" ] && grep -q "\[tool\.poetry\]" "$poetry_file" 2>/dev/null; then
-        project_type="python-poetry"
-        local python_version=$(grep "python" "$poetry_file" | grep -E "'(3\.[0-9]+)'" | head -1 | sed "s/.*'\([^']*\)'.*/\1/" || echo "3.x")
-        
-        cat >> "$pipeline_file" << EOF
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '$python_version'
-          cache: 'poetry'
-      
-      - name: Install Poetry
-        run: pip install poetry
-      
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-root
-      
-      - name: Run tests
-        run: |
-          if poetry run pytest --version >/dev/null 2>&1; then
-            poetry run pytest
-          else
-            echo "No pytest configured, running basic checks"
-            poetry check
-          fi
-EOF
+  local repo_size_kb
+  repo_size_kb=$(du -s "$repo_dir" | awk '{print $1}')
+  local repo_size_mb=$(( (repo_size_kb + 1023) / 1024 ))
 
-        # Check if it's an application
-        if find "$project_dir" -name "*.py" -exec grep -l "if __name__.*__main__" {} \; | head -1 | grep -q .; then
-            cat >> "$pipeline_file" << EOF
-      
-      - name: Build and run application
-        run: poetry install && poetry run python -c "import sys; print('Python application ready')"
-EOF
+  local multiplier=3
+  local estimated_mb
+
+  case "$lang" in
+    node)
+      local deps_count=0
+      if [[ -f "$repo_dir/package.json" ]]; then
+        if command -v jq &> /dev/null; then
+          deps_count=$(jq '.dependencies // {} | length' "$repo_dir/package.json")
+          deps_count=$((deps_count + $(jq '.devDependencies // {} | length' "$repo_dir/package.json")))
+        else
+          deps_count=20
         fi
-        return 0
-        
-    elif [ -n "$req_file" ] || [ -n "$setup_file" ]; then
-        project_type="python-pip"
-        
-        cat >> "$pipeline_file" << EOF
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-          cache: 'pip'
-      
-      - name: Install dependencies
-        run: |
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          elif [ -f setup.py ]; then
-            pip install -e .
-          fi
-      
-      - name: Run tests
-        run: |
-          if python -m pytest --version >/dev/null 2>&1; then
-            python -m pytest
-          elif [ -f setup.py ]; then
-            python setup.py test
-          else
-            echo "No test framework detected"
-            python -c "import sys; print('Python environment ready')"
-          fi
-EOF
-        return 0
-    fi
-    return 1
+      fi
+      multiplier=$(( 10 + deps_count / 3 ))
+      multiplier=$(( multiplier > 100 ? 100 : multiplier ))
+      ;;
+
+    python)
+      local req_lines=0
+      if [[ -f "$repo_dir/requirements.txt" ]]; then
+        req_lines=$(wc -l < "$repo_dir/requirements.txt" | tr -d ' ')
+      fi
+      multiplier=$(( 5 + req_lines * 2 ))
+      multiplier=$(( multiplier > 50 ? 50 : multiplier ))
+      ;;
+
+    java)
+      multiplier=30
+      ;;
+
+    *)
+      multiplier=5
+      ;;
+  esac
+
+  estimated_mb=$(( repo_size_mb * multiplier ))
+  estimated_mb=$(( estimated_mb < 500 ? 500 : estimated_mb ))
+  echo "$estimated_mb"
 }
 
-# === JavaScript/TypeScript ===
-check_javascript_project() {
-    local package_json=$(find "$project_dir" -maxdepth 2 -type f -name "package.json" -print -quit)
-    [ -z "$package_json" ] && return 1
+# === Анализ потребления диска приложением ===
+analyze_disk_usage() {
+  local repo_dir="$1"
+  local lang="$2"
+  local level="low"
+  local reason="Нет явной записи на диск."
 
-    project_type="javascript"
-    local manager="npm"
-    local install_cmd="npm ci"
-    local build_cmd="npm run build --if-present"
-    local test_cmd="npm test --if-present"
-    local start_cmd="npm start --if-present"
+  # Шаблоны, указывающие на использование диска
+  local patterns=(
+    '\.(write|save|dump|to_csv|to_json|writeFile)'  # JS/Python запись
+    'open.*[wa+]'                                    # Python открытие на запись
+    '> .*'
+    '>> .*'
+    'fwrite\|file_put_contents'                     # PHP/C
+    'sqlite\|\.db\|\.sqlite'                         # Базы данных
+    'logs?/'                                         # Логи
+    'upload\|storage\|cache\|tmp\|temp'             # Кэш, временные файлы
+    'Dockerfile.*VOLUME'
+    'docker-compose.*volumes'
+    '\.pkl$'
+    '\.log$'
+    'logging.FileHandler'                            # Python логгирование в файл
+    'os\.makedirs.*log'                              # Создание папок для логов
+  )
 
-    if [ -f "$project_dir/pnpm-lock.yaml" ]; then
-        manager="pnpm"
-        install_cmd="pnpm install --frozen-lockfile"
-        build_cmd="pnpm run build --if-present"
-        test_cmd="pnpm run test --if-present"
-        start_cmd="pnpm run start --if-present"
-    elif [ -f "$project_dir/yarn.lock" ]; then
-        manager="yarn"
-        install_cmd="yarn install --frozen-lockfile"
-        build_cmd="yarn build --if-present"
-        test_cmd="yarn test --if-present"
-        start_cmd="yarn start --if-present"
-    elif [ -f "$project_dir/package-lock.json" ]; then
-        manager="npm"
-        install_cmd="npm ci"
+  local found=0
+  for pattern in "${patterns[@]}"; do
+    if grep -r -s -q -E "$pattern" "$repo_dir" 2>/dev/null; then
+      ((found++))
     fi
+  done
 
-    # Detect TypeScript
-    local has_tsconfig=$(find "$project_dir" -maxdepth 2 -type f -name "tsconfig.json" -print -quit)
-    local node_version="18"
-    
-    cat >> "$pipeline_file" << EOF
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '$node_version'
-          cache: '$manager'
-      
-      - name: Install dependencies
-        run: $install_cmd
-EOF
+  if [ $found -eq 0 ]; then
+    level="low"
+    reason="Не найдено операций записи на диск."
+  elif [ $found -le 3 ]; then
+    level="medium"
+    reason="Обнаружены единичные операции записи (логи, кэш)."
+  else
+    level="high"
+    reason="Много операций записи: БД, логи, сохранение данных."
+  fi
 
-    if [ -n "$has_tsconfig" ]; then
-        cat >> "$pipeline_file" << EOF
-      
-      - name: TypeScript compilation
-        run: |
-          if [ -f node_modules/.bin/tsc ]; then
-            npx tsc --noEmit
-          else
-            echo "TypeScript compiler not found, skipping type check"
-          fi
-EOF
+  # Особые случаи
+  if [[ "$lang" == "python" ]]; then
+    if grep -r -s -q -E 'pandas\.read_(csv|json)|pickle\.load' "$repo_dir" 2>/dev/null; then
+      if [[ "$level" == "low" ]]; then
+        level="medium"
+        reason="Чтение данных из файлов — возможна последующая запись."
+      fi
     fi
+  fi
 
-    cat >> "$pipeline_file" << EOF
-      
-      - name: Run tests
-        run: $test_cmd
-      
-      - name: Build project
-        run: $build_cmd
-      
-      - name: Security audit
-        run: |
-          if [ "$manager" = "npm" ]; then
-            npm audit --audit-level moderate || true
-          elif [ "$manager" = "yarn" ]; then
-            yarn audit --level moderate || true
-          fi
-EOF
-
-    # Check if it's a startable application
-    if grep -q '"start"' "$package_json"; then
-        cat >> "$pipeline_file" << EOF
-      
-      - name: Verify application start
-        run: |
-          timeout 10s $start_cmd || echo "Application start check completed"
-EOF
-    fi
-    
-    return 0
+  echo "$level|$reason"
 }
 
-# === Go ===
-check_go_project() {
-    local go_mod=$(find "$project_dir" -maxdepth 2 -type f -name "go.mod" -print -quit)
-    [ -z "$go_mod" ] && return 1
+# === Оценка объёма и анализ диска ===
+DISK_REQUIRED=$(estimate_disk_requirement "$TEMP_DIR" "$LANG")
+echo "📊 Оценка требуемого места: ${DISK_REQUIRED} MB"
 
-    project_type="go"
-    local go_version=$(grep "^go " "$go_mod" | cut -d' ' -f2 || echo "1.21")
-    
-    cat >> "$pipeline_file" << EOF
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '$go_version'
-          cache: true
-      
-      - name: Download dependencies
-        run: go mod download
-      
-      - name: Run tests
-        run: go test ./...
-      
-      - name: Build verification
-        run: go build -v ./...
-      
-      - name: Vet and lint
-        run: |
-          go vet ./...
-          if command -v golangci-lint >/dev/null 2>&1; then
-            golangci-lint run
-          else
-            echo "golangci-lint not installed, skipping"
-          fi
-EOF
+# Анализ потребления диска
+IFS='|' read -r disk_level disk_reason <<< "$(analyze_disk_usage "$TEMP_DIR" "$LANG")"
+echo "🧠 Анализ использования диска: $disk_level — $disk_reason"
 
-    # Check for main application
-    if find "$project_dir" -name "*.go" -exec grep -l "func main" {} \; | grep -q .; then
-        cat >> "$pipeline_file" << EOF
-      
-      - name: Build executable
-        run: go build -o main .
-EOF
-    fi
-    
-    return 0
-}
+# Проверка доступного места
+avail_mb=$(df / --output=avail -B M | tail -n1 | awk '{print $1}' | tr -d 'M')
 
-# === Rust ===
-check_rust_project() {
-    local cargo_toml=$(find "$project_dir" -maxdepth 2 -type f -name "Cargo.toml" -print -quit)
-    [ -z "$cargo_toml" ] && return 1
-
-    project_type="rust"
-    
-    cat >> "$pipeline_file" << EOF
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-      
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: \${{ runner.os }}-cargo-\${{ hashFiles('**/Cargo.lock') }}
-      
-      - name: Build project
-        run: cargo build --verbose
-      
-      - name: Run tests
-        run: cargo test --verbose
-      
-      - name: Check code quality
-        run: |
-          cargo check
-          cargo clippy -- -D warnings
-EOF
-
-    if [ -f "$project_dir/src/main.rs" ] || grep -q '\[\[bin\]\]' "$cargo_toml" || grep -q '\[bin\]' "$cargo_toml"; then
-        cat >> "$pipeline_file" << EOF
-      
-      - name: Build release binary
-        run: cargo build --release
-EOF
-    fi
-    
-    return 0
-}
-
-# === Ruby ===
-check_ruby_project() {
-    local gemfile=$(find "$project_dir" -maxdepth 2 -type f -name "Gemfile" -print -quit)
-    [ -z "$gemfile" ] && return 1
-
-    project_type="ruby"
-    local ruby_version="3.1"
-    
-    if [ -f "$project_dir/.ruby-version" ]; then
-        ruby_version=$(cat "$project_dir/.ruby-version" | tr -d '\n')
-    fi
-
-    cat >> "$pipeline_file" << EOF
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '$ruby_version'
-          bundler-cache: true
-      
-      - name: Install dependencies
-        run: bundle install
-      
-      - name: Run tests
-        run: |
-          if bundle exec rake -T | grep -q test; then
-            bundle exec rake test
-          elsif [ -f Rakefile ] && grep -q "spec" Rakefile; then
-            bundle exec rake spec
-          else
-            echo "No test task found"
-          fi
-EOF
-
-    # Rails detection
-    if grep -q "rails" "$gemfile"; then
-        cat >> "$pipeline_file" << EOF
-      
-      - name: Rails specific tasks
-        run: |
-          if [ -f Rakefile ]; then
-            bundle exec rake db:create db:migrate RAILS_ENV=test
-            bundle exec rake assets:precompile
-          fi
-EOF
-    fi
-    
-    return 0
-}
-
-# Execute detection functions in order
-CHECK_FUNCTIONS="check_python_project check_javascript_project check_go_project check_rust_project check_ruby_project"
-
-for func in $CHECK_FUNCTIONS; do
-    if type "$func" >/dev/null 2>&1; then
-        "$func"
-        if [ $? -eq 0 ]; then
-            detected=true
-            echo -e "${GREEN}Обнаружен проект типа: $project_type${NC}"
-            break
-        fi
-    fi
-done
-
-if [ "$detected" = false ]; then
-    echo -e "${YELLOW}Предупреждение: Тип проекта не распознан${NC}"
-    cat >> "$pipeline_file" << EOF
-      - name: Multi-language setup
-        run: |
-          echo "Setting up multiple language environments for unknown project type"
-          
-      - name: Basic project analysis
-        run: |
-          echo "=== Project Structure ==="
-          find . -type f -name "*.json" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" | head -10
-          echo "=== Build Files ==="
-          find . -maxdepth 2 -type f -name "package.json" -o -name "requirements.txt" -o -name "go.mod" -o -name "Cargo.toml" -o -name "Gemfile" | head -10
-          
-      - name: Manual setup required
-        run: |
-          echo "No specific project type detected. Please customize this pipeline manually."
-          echo "Common next steps:"
-          echo "1. Add language-specific setup steps"
-          echo "2. Configure build commands"
-          echo "3. Add testing frameworks"
-          echo "4. Set up deployment if needed"
-EOF
+if [[ -z "$avail_mb" ]] || ! [[ "$avail_mb" =~ ^[0-9]+$ ]]; then
+  echo "⚠️  Не удалось определить свободное место на диске."
+else
+  echo "💾 Свободно на диске: ${avail_mb} MB"
+  if [ "$avail_mb" -lt "$DISK_REQUIRED" ]; then
+    echo "⚠️  Недостаточно места для запуска пайплайна, необходимо ${DISK_REQUIRED} МБ"
+  else
+    echo "✅ Достаточно места для сборки и запуска."
+  fi
 fi
 
-# Add final summary step
-cat >> "$pipeline_file" << EOF
+# === Шаги сборки в зависимости от языка ===
+get_build_steps() {
+  case $LANG in
+    python)
+      cat << 'EOF'
+      - apt-get update
+      - apt-get install -y python3 python3-pip
+      - pip3 install -r requirements.txt
+      - python3 -m pytest tests/ || echo "Тесты не обязательны"
+EOF
+      ;;
 
-      - name: Pipeline completion
-        run: |
-          echo "✅ CI Pipeline completed successfully"
-          echo "Project type: $project_type"
-          echo "Branch: $branch_name"
-          date
+    node)
+      cat << 'EOF'
+      - apt-get update
+      - curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+      - apt-get install -y nodejs
+      - npm ci
+      - npm run build || echo "Сборка не обязательна"
+      - npm test || echo "Тесты не обязательны"
+EOF
+      ;;
+
+    java)
+      cat << 'EOF'
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk maven
+      - mvn clean package
+EOF
+      ;;
+
+  esac
+}
+
+# === Генерация pipeline.yaml ===
+cat > "$OUTPUT" << EOF
+# Автоматически сгенерированный CI/CD пайплайн
+# Язык: $LANG
+# Репозиторий: $REPO
+# Ветка: $BRANCH
+# Оценка требуемого дискового пространства: ${DISK_REQUIRED} MB
+# Потребление диска: $disk_level ($disk_reason)
+
+stages:
+  - build
+
+variables:
+  APP_LANG: "$LANG"
+  REQUIRED_DISK_MB: "$DISK_REQUIRED"
+  DISK_USAGE_LEVEL: "$disk_level"   # low | medium | high
+  REPO_URL: "$REPO"
+  TARGET_BRANCH: "$BRANCH"
+  PROJECT_ROOT: "/app"
+
+build_application:
+  stage: build
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update && apt-get install -y git wget sudo
+    - git clone --branch "\${TARGET_BRANCH}" "\${REPO_URL}" \${PROJECT_ROOT}
+    - cd \${PROJECT_ROOT}
+    echo "Проверка содержимого директории: "
+      ls -la "$TEMP_DIR"
+      $(get_build_steps)
+  script:
+    - echo "Сборка завершена успешно."
 
 EOF
 
-echo -e "${GREEN}Пайплайн сгенерирован: $pipeline_file${NC}"
-echo -e "${GREEN}Тип проекта: ${project_type}${NC}"
-echo -e "${YELLOW}Проверьте сгенерированный пайплайн и при необходимости доработайте его вручную.${NC}"
+# === Удаление временной директории ===
+rm -rf "$TEMP_DIR"
+echo "🗑️  Временная директория удалена."
+
+# === Финальное сообщение ===
+echo ""
+echo "✅ Анализ завершён!"
+echo "🚀 Пайплайн сгенерирован: $OUTPUT"
+echo ""
+echo "💡 Теперь вы можете использовать $OUTPUT в GitLab CI, GitHub Actions и других системах."
+echo ""
+echo "📄 Содержимое пайплайна:"
+cat "$OUTPUT"
