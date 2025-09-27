@@ -7,7 +7,7 @@ error_exit() {
 
 repo_url=""
 project_dir=""
-branch="main"
+branch_name="main"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --repo)
@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --branch)
-            branch="$2"
+            branch_name="$2"
             shift 2
             ;;
         *)
