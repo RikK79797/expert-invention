@@ -284,7 +284,7 @@ if [ "$detected" = false ]; then
         run: |
           echo "Project files:"
           ls -la
-          echo "No specific build steps added. Customize pipeline.yaml manually."
+          echo "No specific build steps added. Customize pipeline.yml manually."
 EOF
 fi
 
