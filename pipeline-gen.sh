@@ -5,18 +5,32 @@ error_exit() {
     exit 1
 }
 
-if [ $# -eq 0 ]; then
-    error_exit "Не указан путь к папке или ссылка на репозиторий"
+repo_url=""
+project_dir=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --repo)
+            repo_url="$2"
+            shift 2
+            ;;
+        --dir)
+            project_dir="$2"
+            shift 2
+            ;;
+        *)
+            error_exit "Неизвестный аргумент: $1. Используйте --repo или --dir"
+            ;;
+    esac
+done
+if [ -z "$repo_url" ] && [ -z "$project_dir" ]; then
+    error_exit "Не указан ни репозиторий (--repo), ни папка (--dir)"
 fi
 
-input="$1"
-project_dir=""
-if [[ "$input" =~ ^https?:// ]]; then
-    project_dir=$(basename "$input" .git)
-    git clone "$input" || error_exit "Не удалось клонировать репозиторий"
-else
-    [ -d "$input" ] || error_exit "Папка $input не существует"
-    project_dir="$input"
+if [[ "$repo_url" =~ ^https?:// ]]; then
+    project_dir=$(basename "$repo_url" .git)
+    git clone "$repo_url" || error_exit "Не удалось клонировать репозиторий"
+elif [ -n "$project_dir" ]; then
+    [ -d "$project_dir" ] || error_exit "Папка $project_dir не существует"
 fi
 
 pipeline_file="pipeline.yaml"
@@ -66,4 +80,3 @@ for func in $CHECK_FUNCTIONS; do
         break
     fi
 done
-
