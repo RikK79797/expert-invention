@@ -5,24 +5,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Шаг 1: Клонируем репозиторий
-      - uses: actions/checkout@v3
+      - name: Checkout Prometheus
+        uses: actions/checkout@v3
         with:
           repository: prometheus/prometheus
           ref: main
+          path: prometheus
 
-      # Шаг 2: Установить Go
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
 
-      # Шаг 3: Скачать модули
-      - name: Download Go modules
+      - name: Download dependencies
         working-directory: prometheus
         run: go mod download
 
-      # Шаг 4: Запустить приложение
-      - name: Run Go application
+      - name: Run Prometheus
         working-directory: prometheus
         run: go run .
