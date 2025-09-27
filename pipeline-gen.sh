@@ -55,7 +55,6 @@ jobs:
           repository: $repo_path
           ref: $branch_name
 EOF
-    fi
 }
 create_base_pipeline
 
