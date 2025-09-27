@@ -7,7 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: codeclimate/python-test-reporter.git
-          ref: master
+          repository: lm-sys/FastChat.git
+          ref: main
       - name: install-dependencies
-        run: pip install -r requirements.txt
+        run: poetry install
+      - name: run-application
+        run: poetry run pytest || poetry run python app.py
