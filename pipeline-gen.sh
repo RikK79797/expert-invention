@@ -49,7 +49,7 @@ fi
 
 project_dir="$(cd "$project_dir" && pwd)"
 
-pipeline_file="pipeline.yml"
+pipeline_file="pipeline.yaml"
 detected=false
 
 create_base_pipeline() {
