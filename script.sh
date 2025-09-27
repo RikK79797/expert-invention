@@ -17,7 +17,7 @@ echo "Анализ зависимостей:" > "$DEPS_FILE"
 usage() {
   echo "Использование: $0 [опции]"
   echo "Опции:"
-  echo "  --lang LANG        Язык: python, node, java, go (необязательно — автоопределение)"
+  echo "  --lang LANG        Язык: python, node, java (необязательно — автоопределение)"
   echo "  --repo URL         URL репозитория (HTTPS)"
   echo "  --branch NAME      Ветка (по умолчанию: main)"
   echo "  --output FILE      Имя выходного .yaml файла (по умолчанию: pipeline.yaml)"
@@ -128,10 +128,6 @@ estimate_disk_requirement() {
 
     java)
       multiplier=30
-      ;;
-
-    go)
-      multiplier=4
       ;;
 
     *)
@@ -253,14 +249,6 @@ EOF
 EOF
       ;;
 
-    go)
-      cat << 'EOF'
-      - apt-get update
-      - apt-get install -y golang
-      - go mod download
-      - go build -o app .
-EOF
-      ;;
   esac
 }
 
