@@ -42,7 +42,7 @@ fi
 
 # pipeline_file="pipeline.yaml"
 mkdir -p .github/workflows
-pipeline_file=".github/workflows/pipeline.yml"
+pipeline_file=".github/workflows/pipeline.yaml"
 
 # create_base_pipeline() {
 #     cat > "$pipeline_file" << EOF
