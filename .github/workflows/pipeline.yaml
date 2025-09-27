@@ -7,9 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: simple-login/app.git
+          repository: codefresh-contrib/python-flask-sample-app.git
           ref: master
-      - name: Install Node.js dependencies (npm)
-        run: npm ci
-      - name: Run JavaScript application
-        run: npm start
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      - name: Run Python application
+        run: python main.py
