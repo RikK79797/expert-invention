@@ -69,7 +69,7 @@ check_python_project() {
 EOF
         return 0
     elif [ -n "$poetry_file" ]; then
-            cat >> "$pipeline_file" << EOF
+        cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: poetry install
       - name: run-tests
