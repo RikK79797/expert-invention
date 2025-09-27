@@ -7,9 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: turtl/js.git
-          ref: master
-      - name: install-dependencies
-        run: npm ci
-      - name: run-application
-        run: node main.js
+          repository: prometheus/prometheus.git
+          ref: main
+  - name: Download Go modules
+    run: go mod download
+  - name: Run Go application
+    run: go run .
