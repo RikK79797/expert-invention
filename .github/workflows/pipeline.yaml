@@ -7,9 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: rejot-dev/semcheck.git
-          ref: main
+          repository: turtl/js.git
+          ref: master
       - name: install-dependencies
-        run: go mod download
+        run: npm ci
       - name: run-application
-        run: go run .
+        run: npm biuld
