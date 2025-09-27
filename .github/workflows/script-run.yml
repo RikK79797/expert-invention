@@ -21,10 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install Go
-        run: sudo apt-get install -y golang
-      - name: Install Enry
-        run: go install github.com/go-enry/enry@latest
       - name: Make script executable
         run: chmod +x ./"${{ github.event.inputs.script_name }}"
       - name: Run the script
