@@ -6,6 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: https://github.com/codeclimate/python-test-reporter.git
       - name: install-dependencies
         run: pip install -r requirements.txt
       - name: run-tests
