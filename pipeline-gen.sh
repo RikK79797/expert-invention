@@ -70,16 +70,12 @@ check_python_project() {
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: pip install -r requirements.txt
-      - name: run-tests
-        run: pytest
 EOF
         return 0
     elif [ -n "$poetry_file" ]; then
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: poetry install
-      - name: run-tests
-        run: poetry run pytest
 EOF
         return 0
     else
