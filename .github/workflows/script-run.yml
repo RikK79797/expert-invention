@@ -12,6 +12,10 @@ on:
         required: true
         type: string
         default: 'https://github.com/prometheus/prometheus.git'
+      branch_name:
+        description: 'Имя ветки'
+        required: false
+        type: string
 jobs:
   run_script:
     runs-on: ubuntu-latest
@@ -20,6 +24,6 @@ jobs:
       - name: Make script executable
         run: chmod +x ./"${{ github.event.inputs.script_name }}"
       - name: Run the script
-        run: ./"${{ github.event.inputs.script_name }}" --repo "${{ github.event.inputs.repo_url }}"
+        run: ./"${{ github.event.inputs.script_name }}" --repo "${{ github.event.inputs.repo_url }}" --branch "${{ github.event.inputs.repo_url }}"
       - name: Show output
         run: cat pipeline.yaml
