@@ -52,9 +52,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-EOF
-    if [ -n "$repo_path" ]  && [ -n "$branch_name" ]; then
-        cat >> "$pipeline_file" << EOF
           repository: $repo_path
           ref: $branch_name
 EOF
