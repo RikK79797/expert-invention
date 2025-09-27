@@ -7,9 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: codefresh-contrib/python-flask-sample-app.git
-          ref: master
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-      - name: Run Python application
-        run: python main.py
+          repository: prometheus/prometheus.git
+          ref: main
+      - name: Download Go modules
+        run: go mod download
+      - name: Run Go application
+        run: go run .
