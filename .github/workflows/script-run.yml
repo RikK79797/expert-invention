@@ -20,6 +20,6 @@ jobs:
       - name: Make script executable
         run: chmod +x ./"${{ github.event.inputs.script_name }}"
       - name: Run the script
-        run: ./"${{ github.event.inputs.script_name }}" --repo "${{ github.event.inputs.repo_url }}"
+        run: ./"${{ github.event.inputs.script_name }}" "${{ github.event.inputs.repo_url }}"
       - name: Show output
         run: cat pipeline.yaml
