@@ -197,19 +197,19 @@ EOF
 }
 
 CHECK_FUNCTIONS=$(declare -F | awk '{print $3}' | grep '^check_')
+success=1
 for func in $CHECK_FUNCTIONS; do
-    "$func"
-    if [ $? -eq 0 ]; then
+    if "$func"; then
+        success=1
         break
     fi
 done
-
-
 if [ $success -eq 0 ]; then
     echo "⚠️  Автоматически определить проект не удалось."
     if command -v enry >/dev/null 2>&1; then
+        echo "👉 Запускаем enry для анализа..."
         (cd "$project_dir" && enry || echo "Enry не смог проанализировать репозиторий")
     else
-        echo "😅 Enry не установлен. Мы хотели показать вам языки программирования в процентном соотношении"
+        echo "😅 Enry не установлен. Установите его: go install github.com/go-enry/enry@latest"
     fi
 fi
