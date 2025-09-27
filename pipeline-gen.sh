@@ -384,6 +384,3 @@ cat >> "$pipeline_file" << EOF
           date
 
 EOF
-
-echo -e "${GREEN}Пайплайн сгенерирован: $pipeline_file${NC}"
-echo -e "${GREEN}Тип проекта: ${project_type}${NC}"
