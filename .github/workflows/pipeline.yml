@@ -1,4 +1,4 @@
-name: CI Pipeline
+ name: CI Pipeline
 on:
   workflow_dispatch:
 jobs:
@@ -7,8 +7,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: codeclimate/python-test-reporter.git
-          ref: master
+          repository: AbdiHaryadi/docx-word-checker.git
+          ref: main
       - name: Install Python dependencies
         run: pip install -r requirements.txt
       - name: Run Python application
