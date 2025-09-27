@@ -19,7 +19,9 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --branch)
-            branch_name="$2"
+            if [ -n "$2" ]; then
+                branch_name="$2"
+            fi
             shift 2
             ;;
         *)
