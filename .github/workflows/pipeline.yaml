@@ -1,50 +1,15 @@
 name: CI Pipeline
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
-          repository: lm-sys/FastChat.git
+          repository: prometheus/prometheus.git
           ref: main
-      - name: Detect project type and list files
-        run: |
-          echo "Project directory: $(pwd)"
-          echo "Detected files:"
-          find . -type f -name "*.json" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" | head -20
-          echo "Root directory contents:"
-          ls -la
-      - name: Multi-language setup
-        run: |
-          echo "Setting up multiple language environments for unknown project type"
-          
-      - name: Basic project analysis
-        run: |
-          echo "=== Project Structure ==="
-          find . -type f -name "*.json" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" | head -10
-          echo "=== Build Files ==="
-          find . -maxdepth 2 -type f -name "package.json" -o -name "requirements.txt" -o -name "go.mod" -o -name "Cargo.toml" -o -name "Gemfile" | head -10
-          
-      - name: Manual setup required
-        run: |
-          echo "No specific project type detected. Please customize this pipeline manually."
-          echo "Common next steps:"
-          echo "1. Add language-specific setup steps"
-          echo "2. Configure build commands"
-          echo "3. Add testing frameworks"
-          echo "4. Set up deployment if needed"
-
-      - name: Pipeline completion
-        run: |
-          echo "✅ CI Pipeline completed successfully"
-          echo "Project type: unknown"
-          echo "Branch: main"
-          date
+      - name: Download Go modules
+        run: go mod download
+      - name: Run Go application
+        run: go run .
