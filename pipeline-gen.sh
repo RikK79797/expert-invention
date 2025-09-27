@@ -44,7 +44,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
 EOF
+    if [ -n "$repo_url" ]; then
+        cat >> "$pipeline_file" << EOF
+          repository: $repo_url
+EOF
+    fi
 }
 create_base_pipeline
 
