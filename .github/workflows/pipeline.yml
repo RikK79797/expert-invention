@@ -9,7 +9,7 @@ jobs:
         with:
           repository: prometheus/prometheus.git
           ref: main
-  - name: Download Go modules
-    run: go mod download
-  - name: Run Go application
-    run: go run .
+      - name: Download Go modules
+        run: go mod download
+      - name: Run Go application
+        run: go run .
