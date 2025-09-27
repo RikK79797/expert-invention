@@ -67,22 +67,23 @@ create_base_pipeline
 check_python_project() {
     local req_file=$(find "$project_dir" -type f -name "requirements.txt" -print -quit)
     local poetry_file=$(find "$project_dir" -type f -name "pyproject.toml" -print -quit)
-    locL main_py=$(find "$project_dir" -type f -name "main.py" -print -quit)
-    
+
     if [ -n "$req_file" ]; then
         cat >> "$pipeline_file" << EOF
-      - name: install-dependencies
-        run: pip install -r requirements.txt
-      - name: run-application
-        run: python main.py
+  - name: Install Python dependencies
+    run: pip install -r requirements.txt
+  - name: Run Python application
+    run: python main.py
 EOF
         return 0
     elif [ -n "$poetry_file" ]; then
         cat >> "$pipeline_file" << EOF
-      - name: install-dependencies
-        run: poetry install
-      - name: run-application
-        run: poetry run python main.py
+  - name: Install Poetry
+    run: pip install poetry
+  - name: Install dependencies with Poetry
+    run: poetry install --no-interaction
+  - name: Run application with Poetry
+    run: poetry run python main.py
 EOF
         return 0
     else
@@ -92,40 +93,56 @@ EOF
 
 check_javascript_project() {
     local package_json=$(find "$project_dir" -type f -name "package.json" -print -quit)
-    local lock_file=""
     
-    if [ -n "$package_json" ]; then
-        if [ -f "$project_dir/package-lock.json" ]; then
-            lock_file="package-lock.json"
-        elif [ -f "$project_dir/yarn.lock" ]; then
-            lock_file="yarn.lock"
-        elif [ -f "$project_dir/pnpm-lock.yaml" ]; then
-            lock_file="pnpm-lock.yaml"
-        fi
-
-        cat >> "$pipeline_file" << EOF
-      - name: install-dependencies
-        run: npm ci
-      - name: run-application
-        run: npm biuld
-EOF
-        return 0
-    else
+    if [ -z "$package_json" ]; then
         return 1
     fi
+
+    local manager="npm"
+    if [ -f "$project_dir/pnpm-lock.yaml" ]; then
+        manager="pnpm"
+    elif [ -f "$project_dir/yarn.lock" ]; then
+        manager="yarn"
+    elif [ -f "$project_dir/package-lock.json" ]; then
+        manager="npm"
+    else
+        manager="npm"  # fallback
+    fi
+
+    case "$manager" in
+        "npm")
+            install_cmd="npm ci"
+            start_cmd="npm start"
+            ;;
+        "yarn")
+            install_cmd="yarn install --frozen-lockfile"
+            start_cmd="yarn start"
+            ;;
+        "pnpm")
+            install_cmd="pnpm install --frozen-lockfile"
+            start_cmd="pnpm start"
+            ;;
+    esac
+
+    cat >> "$pipeline_file" << EOF
+  - name: Install Node.js dependencies ($manager)
+    run: $install_cmd
+  - name: Run JavaScript application
+    run: $start_cmd
+EOF
+
+    return 0
 }
 
 check_go_project() {
     local go_mod=$(find "$project_dir" -type f -name "go.mod" -print -quit)
-    local go_sum=$(find "$project_dir" -type f -name "go.sum" -print -quit)
-    local go_main=$(find "$project_dir" -type f -name "main.go" -print -quit)
     
-    if [ -n "$go_mod" ] && [ -n "$go_sum" ] && [ -n "$go_main" ]; then
+    if [ -n "$go_mod" ]; then
         cat >> "$pipeline_file" << EOF
-      - name: install-dependencies
-        run: go mod download
-      - name: run-application
-        run: go run .
+  - name: Download Go modules
+    run: go mod download
+  - name: Run Go application
+    run: go run .
 EOF
         return 0
     else
@@ -135,14 +152,13 @@ EOF
 
 check_rust_project() {
     local cargo_toml=$(find "$project_dir" -type f -name "Cargo.toml" -print -quit)
-    local cargo_lock=$(find "$project_dir" -type f -name "Cargo.lock" -print -quit)
     
-    if [ -n "$cargo_toml" ] && [ -n "$cargo_lock" ]; then
+    if [ -n "$cargo_toml" ]; then
         cat >> "$pipeline_file" << EOF
-      - name: install-dependencies
-        run: cargo fetch
-      - name: run-application
-        run: cargo run
+  - name: Fetch Rust dependencies
+    run: cargo fetch
+  - name: Run Rust application
+    run: cargo run
 EOF
         return 0
     else
@@ -153,15 +169,26 @@ EOF
 check_ruby_project() {
     local gemfile=$(find "$project_dir" -type f -name "Gemfile" -print -quit)
     local gemfile_lock=$(find "$project_dir" -type f -name "Gemfile.lock" -print -quit)
+    local app_rb=$(find "$project_dir" -type f -name "app.rb" -print -quit)
     local config_ru=$(find "$project_dir" -type f -name "config.ru" -print -quit)
     local rakefile=$(find "$project_dir" -type f -name "Rakefile" -print -quit)
-    
-    if [ -n "$gemfile" ] && [ -n "$gemfile_lock" ] && { [ -n "$config_ru" ] || [ -n "$rakefile" ]; }; then
+
+    if [ -n "$gemfile" ] && [ -n "$gemfile_lock" ] && { [ -n "$app_rb" ] || [ -n "$config_ru" ] || [ -n "$rakefile" ]; }; then
         cat >> "$pipeline_file" << EOF
-      - name: install-dependencies
-        run: bundle install
-      - name: run-application
-        run: bundle exec ruby app.rb || bundle exec rackup
+  - name: Install Ruby dependencies
+    run: bundle install
+  - name: Run Ruby application
+    run: |
+      if [ -f "app.rb" ]; then
+        bundle exec ruby app.rb
+      elif [ -f "config.ru" ]; then
+        bundle exec rackup config.ru
+      elif [ -f "Rakefile" ]; then
+        bundle exec rake
+      else
+        echo "No known entry point found."
+        exit 1
+      fi
 EOF
         return 0
     else
