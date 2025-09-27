@@ -13,4 +13,4 @@ jobs:
         run: go mod download
       - name: run-application
         # run: go run .
-        run: go run main.go
+        run: main.go
