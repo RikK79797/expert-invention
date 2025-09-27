@@ -7,6 +7,7 @@ error_exit() {
 
 repo_url=""
 project_dir=""
+branch="main"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --repo)
@@ -15,6 +16,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dir)
             project_dir="$2"
+            shift 2
+            ;;
+        --branch)
+            branch="$2"
             shift 2
             ;;
         *)
@@ -48,9 +53,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
 EOF
-    if [ -n "$repo_url" ]; then
+    if [ -n "$repo_url" ]  && [ -n "$repo_path" ]; then
         cat >> "$pipeline_file" << EOF
           repository: $repo_path
+          ref: $branch
 EOF
     fi
 }
