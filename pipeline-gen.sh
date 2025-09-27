@@ -372,15 +372,3 @@ if [ "$detected" = false ]; then
           echo "4. Set up deployment if needed"
 EOF
 fi
-
-# Add final summary step
-cat >> "$pipeline_file" << EOF
-
-      - name: Pipeline completion
-        run: |
-          echo "✅ CI Pipeline completed successfully"
-          echo "Project type: $project_type"
-          echo "Branch: $branch_name"
-          date
-
-EOF
