@@ -29,6 +29,8 @@ fi
 if [[ "$repo_url" =~ ^https?:// ]]; then
     project_dir=$(basename "$repo_url" .git)
     git clone "$repo_url" || error_exit "Не удалось клонировать репозиторий"
+    # Извлекаем owner/repo из URL
+    repo_path=$(echo "$repo_url" | sed -E 's|https?://github.com/||; s|\\.git$||')
 elif [ -n "$project_dir" ]; then
     [ -d "$project_dir" ] || error_exit "Папка $project_dir не существует"
 fi
@@ -48,7 +50,7 @@ jobs:
 EOF
     if [ -n "$repo_url" ]; then
         cat >> "$pipeline_file" << EOF
-          repository: $repo_url
+          repository: $repo_path
 EOF
     fi
 }
