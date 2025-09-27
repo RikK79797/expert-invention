@@ -71,7 +71,7 @@ check_python_project() {
       - name: install-dependencies
         run: pip install -r requirements.txt
       - name: run-application
-        run: python app.py
+        run: python main.py
 EOF
         return 0
     elif [ -n "$poetry_file" ]; then
@@ -79,7 +79,7 @@ EOF
       - name: install-dependencies
         run: poetry install
       - name: run-application
-        run: poetry run python app.py
+        run: poetry run python main.py
 EOF
         return 0
     else
@@ -104,7 +104,7 @@ check_javascript_project() {
       - name: install-dependencies
         run: npm ci
       - name: run-application
-        run: npm start
+        run: npm biuld
 EOF
         return 0
     else
