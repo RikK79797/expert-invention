@@ -12,4 +12,4 @@ jobs:
       - name: install-dependencies
         run: npm ci
       - name: run-application
-        run: npm biuld
+        run: node main.js
