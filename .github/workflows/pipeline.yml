@@ -23,4 +23,4 @@ jobs:
 
       - name: Run Prometheus
         working-directory: prometheus
-        run: go run .
+        run: ls -a && go run .
