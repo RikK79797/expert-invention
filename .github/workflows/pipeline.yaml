@@ -7,11 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: lm-sys/FastChat.git
-          ref: main
-      - name: install poetry
-        run: curl -sSL https://install.python-poetry.org | python3 -
+          repository: prometheus/prometheus.git
+          ref: master
       - name: install-dependencies
-        run: poetry install
+        run: go mod download
       - name: run-application
-        run: poetry run pytest || poetry run python app.py
+        run: go run .
