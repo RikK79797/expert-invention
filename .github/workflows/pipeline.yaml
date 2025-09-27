@@ -1,9 +1,9 @@
 name: CI Pipeline
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -13,8 +13,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          repository: turtl/js.git
-          ref: master
+          repository: lm-sys/FastChat.git
+          ref: main
       - name: Detect project type and list files
         run: |
           echo "Project directory: $(pwd)"
@@ -22,32 +22,29 @@ jobs:
           find . -type f -name "*.json" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" | head -20
           echo "Root directory contents:"
           ls -la
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run tests
-        run: npm test --if-present
-      
-      - name: Build project
-        run: npm run build --if-present
-      
-      - name: Security audit
+      - name: Multi-language setup
         run: |
-          if [ "npm" = "npm" ]; then
-            npm audit --audit-level moderate || true
-          elif [ "npm" = "yarn" ]; then
-            yarn audit --level moderate || true
-          fi
+          echo "Setting up multiple language environments for unknown project type"
+          
+      - name: Basic project analysis
+        run: |
+          echo "=== Project Structure ==="
+          find . -type f -name "*.json" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" | head -10
+          echo "=== Build Files ==="
+          find . -maxdepth 2 -type f -name "package.json" -o -name "requirements.txt" -o -name "go.mod" -o -name "Cargo.toml" -o -name "Gemfile" | head -10
+          
+      - name: Manual setup required
+        run: |
+          echo "No specific project type detected. Please customize this pipeline manually."
+          echo "Common next steps:"
+          echo "1. Add language-specific setup steps"
+          echo "2. Configure build commands"
+          echo "3. Add testing frameworks"
+          echo "4. Set up deployment if needed"
 
       - name: Pipeline completion
         run: |
           echo "✅ CI Pipeline completed successfully"
-          echo "Project type: javascript"
-          echo "Branch: master"
+          echo "Project type: unknown"
+          echo "Branch: main"
           date
