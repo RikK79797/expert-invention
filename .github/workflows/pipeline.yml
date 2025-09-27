@@ -10,6 +10,9 @@ jobs:
           repository: prometheus/prometheus.git
           ref: main
       - name: Download Go modules
+        working-directory: prometheus
         run: go mod download
+    
       - name: Run Go application
+        working-directory: prometheus
         run: go run .
