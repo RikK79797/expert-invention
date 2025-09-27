@@ -12,5 +12,4 @@ jobs:
       - name: install-dependencies
         run: go mod download
       - name: run-application
-        # run: go run .
-        run: main.go
+        run: go run .
