@@ -6,7 +6,7 @@ on:
         description: 'Имя скрипта для запуска'
         required: true
         type: string
-        default: 'script.sh'
+        default: 'pipeline-gen.sh'
       repo_url:
         description: 'URL репозитория для клонирования'
         required: true
