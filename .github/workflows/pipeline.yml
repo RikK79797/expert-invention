@@ -7,8 +7,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: turtl/js.git
-          ref: master
+          repository: lm-sys/FastChat.git
+          ref: main
       - name: Setup environment
         run: |
           echo "Project directory: $(pwd)"
