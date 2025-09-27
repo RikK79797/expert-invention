@@ -83,6 +83,76 @@ EOF
     fi
 }
 
+check_javascript_project() {
+    local package_json=$(find "$project_dir" -type f -name "package.json" -print -quit)
+    local lock_file=""
+    
+    if [ -n "$package_json" ]; then
+        if [ -f "$project_dir/package-lock.json" ]; then
+            lock_file="package-lock.json"
+        elif [ -f "$project_dir/yarn.lock" ]; then
+            lock_file="yarn.lock"
+        elif [ -f "$project_dir/pnpm-lock.yaml" ]; then
+            lock_file="pnpm-lock.yaml"
+        fi
+
+        cat >> "$pipeline_file" << EOF
+      - name: install-dependencies
+        run: npm ci
+EOF
+        return 0
+    else
+        return 1
+    fi
+}
+
+check_go_project() {
+    local go_mod=$(find "$project_dir" -type f -name "go.mod" -print -quit)
+    local go_sum=$(find "$project_dir" -type f -name "go.sum" -print -quit)
+    
+    if [ -n "$go_mod" ] && [ -n "$go_sum" ]; then
+        cat >> "$pipeline_file" << EOF
+      - name: install-dependencies
+        run: go mod download
+EOF
+        return 0
+    else
+        return 1
+    fi
+}
+
+check_rust_project() {
+    local cargo_toml=$(find "$project_dir" -type f -name "Cargo.toml" -print -quit)
+    local cargo_lock=$(find "$project_dir" -type f -name "Cargo.lock" -print -quit)
+    
+    if [ -n "$cargo_toml" ] && [ -n "$cargo_lock" ]; then
+        cat >> "$pipeline_file" << EOF
+      - name: install-dependencies
+        run: cargo fetch
+EOF
+        return 0
+    else
+        return 1
+    fi
+}
+
+check_ruby_project() {
+    local gemfile=$(find "$project_dir" -type f -name "Gemfile" -print -quit)
+    local gemfile_lock=$(find "$project_dir" -type f -name "Gemfile.lock" -print -quit)
+    local config_ru=$(find "$project_dir" -type f -name "config.ru" -print -quit)
+    local rakefile=$(find "$project_dir" -type f -name "Rakefile" -print -quit)
+    
+    if [ -n "$gemfile" ] && [ -n "$gemfile_lock" ] && { [ -n "$config_ru" ] || [ -n "$rakefile" ]; }; then
+        cat >> "$pipeline_file" << EOF
+      - name: install-dependencies
+        run: bundle install
+EOF
+        return 0
+    else
+        return 1
+    fi
+}
+
 CHECK_FUNCTIONS=$(declare -F | awk '{print $3}' | grep '^check_')
 for func in $CHECK_FUNCTIONS; do
     "$func"
