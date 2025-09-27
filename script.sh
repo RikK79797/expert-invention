@@ -279,7 +279,9 @@ build_application:
     - apt-get update && apt-get install -y git wget sudo
     - git clone --branch "\${TARGET_BRANCH}" "\${REPO_URL}" \${PROJECT_ROOT}
     - cd \${PROJECT_ROOT}
-$(get_build_steps)
+    echo "Проверка содержимого директории: "
+      ls -la "$TEMP_DIR"
+      $(get_build_steps)
   script:
     - echo "Сборка завершена успешно."
 
