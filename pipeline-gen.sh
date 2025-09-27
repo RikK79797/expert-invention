@@ -70,27 +70,20 @@ check_python_project() {
 
     if [ -n "$req_file" ]; then
         cat >> "$pipeline_file" << EOF
-  - name: Install Python dependencies
-    working-directory: $project_dir
-    run: pip install -r requirements.txt
-
-  - name: Run Python application
-    working-directory: $project_dir
-    run: python main.py
+      - name: Install Python dependencies
+      run: pip install -r requirements.txt
+      - name: Run Python application
+      run: python main.py
 EOF
         return 0
     elif [ -n "$poetry_file" ]; then
         cat >> "$pipeline_file" << EOF
-  - name: Install Poetry
-    run: pip install poetry
-
-  - name: Install dependencies with Poetry
-    working-directory: $project_dir
-    run: poetry install --no-interaction
-
-  - name: Run application with Poetry
-    working-directory: $project_dir
-    run: poetry run python main.py
+      - name: Install Poetry
+      run: pip install poetry
+      - name: Install dependencies with Poetry
+      run: poetry install --no-interaction
+      - name: Run application with Poetry
+      run: poetry run python main.py
 EOF
         return 0
     else
@@ -132,13 +125,10 @@ check_javascript_project() {
     esac
 
     cat >> "$pipeline_file" << EOF
-  - name: Install Node.js dependencies ($manager)
-    working-directory: $project_dir
-    run: $install_cmd
-
-  - name: Run JavaScript application
-    working-directory: $project_dir
-    run: $start_cmd
+      - name: Install Node.js dependencies ($manager)
+      run: $install_cmd
+      - name: Run JavaScript application
+      run: $start_cmd
 EOF
     return 0
 }
@@ -148,13 +138,10 @@ check_go_project() {
     
     if [ -n "$go_mod" ]; then
         cat >> "$pipeline_file" << EOF
-  - name: Download Go modules
-    working-directory: $project_dir
-    run: go mod download
-
-  - name: Run Go application
-    working-directory: $project_dir
-    run: go run .
+      - name: Download Go modules
+      run: go mod download
+      - name: Run Go application
+      run: go run .
 EOF
         return 0
     else
@@ -167,13 +154,10 @@ check_rust_project() {
     
     if [ -n "$cargo_toml" ]; then
         cat >> "$pipeline_file" << EOF
-  - name: Fetch Rust dependencies
-    working-directory: $project_dir
-    run: cargo fetch
-
-  - name: Run Rust application
-    working-directory: $project_dir
-    run: cargo run
+      - name: Fetch Rust dependencies
+      run: cargo fetch
+      - name: Run Rust application
+      run: cargo run
 EOF
         return 0
     else
@@ -190,23 +174,20 @@ check_ruby_project() {
 
     if [ -n "$gemfile" ] && [ -n "$gemfile_lock" ] && { [ -n "$app_rb" ] || [ -n "$config_ru" ] || [ -n "$rakefile" ]; }; then
         cat >> "$pipeline_file" << EOF
-  - name: Install Ruby dependencies
-    working-directory: $project_dir
-    run: bundle install
-
-  - name: Run Ruby application
-    working-directory: $project_dir
-    run: |
-      if [ -f "app.rb" ]; then
-        bundle exec ruby app.rb
-      elif [ -f "config.ru" ]; then
-        bundle exec rackup config.ru
-      elif [ -f "Rakefile" ]; then
-        bundle exec rake
-      else
-        echo "No known entry point found."
-        exit 1
-      fi
+      - name: Install Ruby dependencies
+      run: bundle install
+      - name: Run Ruby application
+      run: |
+        if [ -f "app.rb" ]; then
+          bundle exec ruby app.rb
+        elif [ -f "config.ru" ]; then
+          bundle exec rackup config.ru
+        elif [ -f "Rakefile" ]; then
+          bundle exec rake
+        else
+          echo "No known entry point found."
+          exit 1
+        fi
 EOF
         return 0
     else
@@ -223,11 +204,5 @@ for func in $CHECK_FUNCTIONS; do
     fi
 done
 if [ $success -eq 0 ]; then
-    echo "⚠️  Автоматически определить проект не удалось."
-    if command -v enry >/dev/null 2>&1; then
-        echo "👉 Запускаем enry для анализа..."
-        (cd "$project_dir" && enry || echo "Enry не смог проанализировать репозиторий")
-    else
-        echo "😅 Enry не установлен. Установите его: go install github.com/go-enry/enry@latest"
-    fi
+    echo -e "😅 Бывает... возможно язык не поддерживается этим скриптом или возникла непредвиденная ошибка."
 fi
