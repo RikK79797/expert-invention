@@ -55,17 +55,17 @@ check_python_project() {
     if [ -n "$req_file" ]; then
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
-        command: pip install -r requirements.txt
+        run: pip install -r requirements.txt
       - name: run-tests
-        command: pytest
+        run: pytest
 EOF
         return 0
     elif [ -n "$poetry_file" ]; then
             cat >> "$pipeline_file" << EOF
       - name: install-dependencies
-        command: poetry install
+        run: poetry install
       - name: run-tests
-        command: poetry run pytest
+        run: poetry run pytest
 EOF
         return 0
     else
