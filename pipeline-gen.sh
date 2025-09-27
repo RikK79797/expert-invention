@@ -40,27 +40,55 @@ elif [ -n "$project_dir" ]; then
     [ -d "$project_dir" ] || error_exit "Папка $project_dir не существует"
 fi
 
-pipeline_file="pipeline.yaml"
+# pipeline_file="pipeline.yaml"
+mkdir -p .github/workflows
+pipeline_file=".github/workflows/pipeline.yml"
+
+# create_base_pipeline() {
+#     cat > "$pipeline_file" << EOF
+# name: CI Pipeline
+# on:
+#   workflow_dispatch:
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#     steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v3
+#         with:
+# EOF
+#     if [ -n "$repo_path" ] && [ -n "$branch_name" ]; then
+#         cat >> "$pipeline_file" << EOF
+#           repository: $repo_path
+#           ref: $branch_name
+# EOF
+#     fi
+# }
+# create_base_pipeline
 create_base_pipeline() {
-    cat > "$pipeline_file" << EOF
+    cat > "$pipeline_file" << 'EOF'
 name: CI Pipeline
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
+      - name: Checkout code
+        uses: actions/checkout@v3
 EOF
-    if [ -n "$repo_path" ] && [ -n "$branch_name" ]; then
+    
+    if [ -n "$repo_url" ] && [ -n "$branch_name" ]; then
         cat >> "$pipeline_file" << EOF
-          repository: $repo_path
+        with:
+          repository: $(echo "$repo_url" | sed -E 's|https?://github.com/||; s|\.git$||')
           ref: $branch_name
 EOF
     fi
 }
-create_base_pipeline
 
 check_python_project() {
     local req_file=$(find "$project_dir" -type f -name "requirements.txt" -print -quit)
