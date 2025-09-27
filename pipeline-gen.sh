@@ -52,9 +52,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: $repo_path
-          ref: $branch_name
 EOF
+    if [ -n "$repo_path" ] && [ -n "$branch_name" ]; then
+        cat >> "$pipeline_file" << EOF
+EOF
+    fi
 }
 create_base_pipeline
 
