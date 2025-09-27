@@ -1,0 +1,8 @@
+pipeline:
+  version: 1.0
+  build:
+    steps:
+      - name: install-dependencies
+        command: pip install -r requirements.txt
+      - name: run-tests
+        command: pytest
