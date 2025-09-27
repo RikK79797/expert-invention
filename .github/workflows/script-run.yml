@@ -1,18 +1,23 @@
 name: Run My Shell Script
 on:
   workflow_dispatch:
-  
-  push:
-    branches:
-      - main
-    paths:
-      - 'script.sh'
+    inputs:
+      script_name:
+        description: 'Имя скрипта для запуска'
+        required: true
+        type: string
+        default: 'script.sh'
+      repo_url:
+        description: 'URL репозитория для клонирования'
+        required: true
+        type: string
+        default: 'https://github.com/prometheus/prometheus.git'
 jobs:
   run_script:
-    runs-on: ubuntu-latest  # Uses a Linux environment (compatible with .sh scripts)
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3  # Step 1: Clones your repo to the runner
+      - uses: actions/checkout@v3
       - name: Make script executable
-        run: chmod +x ./script.sh  # Step 2: Grants execute permission to your script
+        run: chmod +x ./"${{ github.event.inputs.script_name }}"
       - name: Run the script
-        run: ./script.sh --repo "https://github.com/prometheus/prometheus.git"  # Step 3: Executes your shell script
+        run: ./"${{ github.event.inputs.script_name }}" --repo "${{ github.event.inputs.repo_url }}"
