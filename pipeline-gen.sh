@@ -70,12 +70,16 @@ check_python_project() {
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: pip install -r requirements.txt
+      - name: run-application
+        run: python -m pytest || python app.py
 EOF
         return 0
     elif [ -n "$poetry_file" ]; then
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: poetry install
+      - name: run-application
+        run: poetry run pytest || poetry run python app.py
 EOF
         return 0
     else
@@ -99,6 +103,8 @@ check_javascript_project() {
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: npm ci
+      - name: run-application
+        run: npm start
 EOF
         return 0
     else
@@ -114,6 +120,8 @@ check_go_project() {
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: go mod download
+      - name: run-application
+        run: go run .
 EOF
         return 0
     else
@@ -129,6 +137,8 @@ check_rust_project() {
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: cargo fetch
+      - name: run-application
+        run: cargo run
 EOF
         return 0
     else
@@ -146,6 +156,8 @@ check_ruby_project() {
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: bundle install
+      - name: run-application
+        run: bundle exec ruby app.rb || bundle exec rackup
 EOF
         return 0
     else
