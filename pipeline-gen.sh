@@ -67,6 +67,7 @@ create_base_pipeline
 check_python_project() {
     local req_file=$(find "$project_dir" -type f -name "requirements.txt" -print -quit)
     local poetry_file=$(find "$project_dir" -type f -name "pyproject.toml" -print -quit)
+    locL main_py=$(find "$project_dir" -type f -name "main.py" -print -quit)
     
     if [ -n "$req_file" ]; then
         cat >> "$pipeline_file" << EOF
@@ -117,8 +118,9 @@ EOF
 check_go_project() {
     local go_mod=$(find "$project_dir" -type f -name "go.mod" -print -quit)
     local go_sum=$(find "$project_dir" -type f -name "go.sum" -print -quit)
+    local go_main=$(find "$project_dir" -type f -name "main.go" -print -quit)
     
-    if [ -n "$go_mod" ] && [ -n "$go_sum" ]; then
+    if [ -n "$go_mod" ] && [ -n "$go_sum" ] && [ -n "$go_main" ]; then
         cat >> "$pipeline_file" << EOF
       - name: install-dependencies
         run: go mod download
