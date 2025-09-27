@@ -1,0 +1,15 @@
+name: CI Pipeline
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: prometheus/prometheus.git
+          ref: main
+  - name: Download Go modules
+    run: go mod download
+  - name: Run Go application
+    run: go run .
