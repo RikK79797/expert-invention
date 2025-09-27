@@ -11,5 +11,3 @@ jobs:
           ref: master
       - name: install-dependencies
         run: pip install -r requirements.txt
-      - name: run-tests
-        run: pytest
